@@ -2,12 +2,8 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 const nextConfig = {
   output: 'standalone',
-  eslint: {
-    dirs: ['src'],
-  },
 
   reactStrictMode: false,
-  swcMinify: true,
 
   // Uncoment to add domain whitelist
   images: {
@@ -23,6 +19,8 @@ const nextConfig = {
       },
     ],
   },
+
+  turbopack: {},
 
   webpack(config) {
     // Grab the existing rule that handles SVG imports
@@ -58,6 +56,7 @@ const nextConfig = {
       net: false,
       tls: false,
       crypto: false,
+      string_decoder: false,
     };
 
     return config;
