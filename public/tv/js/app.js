@@ -26,6 +26,7 @@
       return router.parse(win.location.hash).name;
     }
 
+    // go/replace to the current hash is a no-op: the browser fires no hashchange, so nothing re-mounts.
     function replace(name, params) {
       win.location.replace(router.format(name, params));
     }
@@ -119,17 +120,39 @@
       }
     }
 
+    var focusReported = false;
+    function reportOnce(e) {
+      if (focusReported) return;
+      focusReported = true;
+      if (win.console && win.console.error) win.console.error('TV key handler failed', e);
+    }
+
     function onKeyDown(ev) {
       var action = keys.action(ev);
       if (!action || !current) return;
-      var i;
-      for (i = 0; i < current.keyHandlers.length; i++) {
-        if (current.keyHandlers[i](action)) {
+      var handlers = current.keyHandlers;
+      for (var i = 0; i < handlers.length; i++) {
+        var taken = false;
+        try {
+          taken = handlers[i](action);
+        } catch (e) {
+          // A faulty view handler must not trap the remote: drop it, report once, carry on.
+          handlers.splice(i, 1);
+          i--;
+          reportOnce(e);
+        }
+        if (taken) {
           ev.preventDefault();
           return;
         }
       }
-      if (current.focus.handle(action)) {
+      var moved = false;
+      try {
+        moved = current.focus.handle(action);
+      } catch (e2) {
+        reportOnce(e2);
+      }
+      if (moved) {
         ev.preventDefault();
         return;
       }

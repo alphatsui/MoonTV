@@ -161,3 +161,48 @@ test('info view shows version and user agent', async () => {
   expect(document.body.textContent).toContain('0.1.0');
   expect(document.body.textContent).toContain(navigator.userAgent);
 });
+
+test('throwing view onKey handler does not trap Back; reported once', async () => {
+  const err = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const back = jest.spyOn(window.history, 'back').mockImplementation(() => {});
+  window.location.hash = '#/home';
+  await tick();
+  start(fakeApi(), { home: { mount: (el, p, ctx) => { ctx.onKey(() => { throw new Error('bad'); }); } } });
+  await tick();
+  key(10009);
+  key(10009);
+  expect(back).toHaveBeenCalledTimes(2);
+  expect(err).toHaveBeenCalledTimes(1);
+});
+
+test('throwing handler then arrow key still moves focus; throwing focus.handle falls through to back', async () => {
+  const err = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const back = jest.spyOn(window.history, 'back').mockImplementation(() => {});
+  window.location.hash = '#/home';
+  await tick();
+  let a, b;
+  start(fakeApi(), {
+    home: {
+      mount: (el, p, ctx) => {
+        a = document.createElement('button');
+        b = document.createElement('button');
+        el.appendChild(a);
+        el.appendChild(b);
+        ctx.focus.setRows([[a], [b]]);
+        ctx.onKey(() => { throw new Error('bad'); });
+      },
+    },
+  });
+  await tick();
+  key(40);
+  expect(b.classList.contains('focused')).toBe(true);
+  expect(err).toHaveBeenCalledTimes(1);
+  handle.destroy();
+  const badFocus = { manager: () => ({ setRows() {}, current: () => null, handle() { throw new Error('f'); } }) };
+  document.body.innerHTML = '<div id="app"></div>';
+  window.TVViews.home = { mount: () => {} };
+  handle = TVApp.boot({ api: fakeApi(), root: document.getElementById('app'), focus: badFocus });
+  key(10009);
+  expect(back).toHaveBeenCalledTimes(1);
+  expect(err).toHaveBeenCalledTimes(2);
+});
