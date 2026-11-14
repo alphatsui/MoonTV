@@ -116,7 +116,16 @@ function handleAuthFailure(
 }
 
 // 判断是否需要跳过认证的路径
+// TV front end (static, remote-only) is served without auth
+export function isTvPath(pathname: string): boolean {
+  return pathname === '/tv' || pathname.startsWith('/tv/');
+}
+
 function shouldSkipAuth(pathname: string): boolean {
+  if (isTvPath(pathname)) {
+    return true;
+  }
+
   const skipPaths = [
     '/_next',
     '/favicon.ico',
