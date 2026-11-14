@@ -50,6 +50,18 @@ describe('TVFocus.manager', () => {
     expect(g('d').classList.contains('focused')).toBe(true);
     expect(document.querySelectorAll('.focused').length).toBe(1);
   });
+  test('moving off the input blurs it so Backspace maps to back', () => {
+    const TVKeys = require('../../../public/tv/js/keys.js');
+    const { g, m } = setup();
+    m.handle('down');
+    expect(document.activeElement).toBe(g('i'));
+    m.handle('down');
+    expect(document.activeElement).not.toBe(g('i'));
+    let got;
+    document.addEventListener('keydown', (e) => { got = TVKeys.action(e); }, { once: true });
+    document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 8, bubbles: true }));
+    expect(got).toBe('back');
+  });
   test('setRows keeps position when still valid', () => {
     const { g, m } = setup();
     m.focusAt(0, 1);

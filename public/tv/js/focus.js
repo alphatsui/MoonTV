@@ -42,6 +42,11 @@
       var el = current();
       if (shown && shown !== el) shown.classList.remove('focused');
       shown = el;
+      var active = typeof document !== 'undefined' ? document.activeElement : null;
+      if (active && active !== el && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') && active.blur) {
+        // Typing and Backspace must stop reaching a text field that is no longer focused.
+        active.blur();
+      }
       if (!el) return;
       el.classList.add('focused');
       if (el.scrollIntoView) el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
