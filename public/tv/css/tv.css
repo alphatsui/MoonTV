@@ -1,0 +1,85 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: #0b0f14;
+  color: #fff;
+  font-family: sans-serif;
+  font-size: 32px;
+}
+.view { padding: 80px 120px; box-sizing: border-box; height: 1080px; }
+h1 { font-size: 56px; margin: 0 0 40px; }
+.msg { min-height: 44px; color: #ffb74d; margin: 0 0 24px; }
+.info-line { margin: 0 0 24px; word-break: break-all; }
+.field, .btn {
+  display: block;
+  box-sizing: border-box;
+  width: 720px;
+  margin: 0 0 32px;
+  padding: 20px 28px;
+  font-size: 32px;
+  color: #fff;
+  background: #1c2530;
+  border: 2px solid #33414f;
+  border-radius: 12px;
+  outline: none;
+}
+.btn { text-align: center; cursor: pointer; }
+.focused {
+  outline: 6px solid #4fc3f7;
+  outline-offset: 2px;
+  transform: scale(1.06);
+  /* scrollIntoView keeps the ring (scale + outline, about 19px) inside the scroll container. */
+  scroll-margin: 24px;
+}
+.view-home, .view-search { padding: 40px 80px; }
+.header { display: flex; margin: 0 0 24px; }
+.header .btn { width: 260px; margin: 0 32px 0 0; }
+.row { margin: 0 0 20px; }
+.row-title { font-size: 36px; margin: 0 0 12px; }
+/* overflow:hidden clips: 24px of padding holds the focus ring; the negative margin keeps the cards where they were. */
+.strip { display: flex; flex-wrap: nowrap; overflow: hidden; padding: 24px; margin: -12px -24px; }
+.card { flex: 0 0 auto; width: 220px; margin: 0 28px 0 0; }
+.poster { position: relative; width: 220px; height: 330px; background: #1c2530; border-radius: 8px; overflow: hidden; }
+.poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.progress { position: absolute; left: 0; right: 0; bottom: 0; height: 10px; background: rgba(0,0,0,0.6); }
+.progress-fill { height: 100%; background: #4fc3f7; }
+.card-title { margin-top: 8px; font-size: 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.view-search .field { width: 1000px; }
+.search-bar { display: flex; }
+.search-bar .field { margin-right: 32px; }
+.search-bar .btn { width: 200px; }
+.chips { display: flex; flex-wrap: wrap; margin: 0 0 16px; }
+.chip { margin: 0 16px 12px 0; padding: 10px 24px; font-size: 28px; color: #fff; background: #1c2530; border: 2px solid #33414f; border-radius: 24px; outline: none; }
+/* 24px below the last row gives the page room to scroll the focus ring into view. */
+.grid { display: grid; grid-template-columns: repeat(6, 220px); gap: 24px 40px; padding: 12px 0 24px; }
+.grid .card { margin: 0; }
+.view-detail { padding: 40px 80px; }
+.detail-top { display: flex; margin: 0 0 20px; }
+.detail-poster { flex: 0 0 auto; margin: 0 48px 0 0; }
+.detail-info { flex: 1 1 auto; min-width: 0; }
+.detail-title { font-size: 48px; margin: 0 0 12px; }
+.detail-meta { color: #9fb0c0; margin: 0 0 12px; }
+.detail-desc { font-size: 26px; line-height: 1.4; max-height: 180px; overflow: hidden; }
+.detail-buttons { display: flex; margin: 0 0 16px; }
+.detail-buttons .btn { width: 320px; margin: 0 32px 0 0; }
+.ep-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 16px; padding: 12px 0; }
+.ep { padding: 12px 0; text-align: center; font-size: 28px; background: #1c2530; border: 2px solid #33414f; border-radius: 8px; }
+.view-play { padding: 0; background: #000; }
+.player-stage { position: relative; width: 1920px; height: 1080px; background: #000; overflow: hidden; }
+.player-video { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: #000; object-fit: contain; }
+.player-msg { position: absolute; left: 0; right: 0; top: 500px; text-align: center; color: #9fb0c0; }
+.player-overlay { display: none; position: absolute; left: 0; right: 0; bottom: 0; padding: 120px 120px 60px; background: linear-gradient(transparent, rgba(0,0,0,0.85)); }
+.player-overlay.shown { display: block; }
+.player-title { font-size: 44px; margin: 0 0 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-ep { color: #9fb0c0; margin-left: 16px; }
+.player-bar { height: 10px; background: rgba(255,255,255,0.25); border-radius: 5px; overflow: hidden; }
+.player-bar-fill { width: 0; height: 100%; background: #4fc3f7; }
+.player-time { margin: 12px 0 0; font-size: 28px; color: #cfd8e0; }
+.player-buttons { display: none; margin: 28px 0 0; }
+.player-overlay.menu .player-buttons { display: flex; }
+.player-buttons .btn { width: 280px; margin: 0 32px 0 0; }
+.player-error { display: none; position: absolute; left: 0; top: 0; right: 0; bottom: 0; padding: 360px 600px 0; box-sizing: border-box; background: rgba(0,0,0,0.85); }
+.player-error.shown { display: block; }

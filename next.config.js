@@ -20,6 +20,10 @@ const nextConfig = {
     ],
   },
 
+  async rewrites() {
+    return [{ source: '/tv', destination: '/tv/index.html' }];
+  },
+
   turbopack: {},
 
   webpack(config) {
