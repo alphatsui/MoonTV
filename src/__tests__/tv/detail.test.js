@@ -154,6 +154,69 @@ test('zero episodes shows message, focus on sources row when it has items', asyn
   expect(btn(app, '返回')).toBeFalsy();
 });
 
+function key(code) {
+  document.dispatchEvent(new KeyboardEvent('keydown', { keyCode: code, bubbles: true, cancelable: true }));
+}
+
+test('zero episodes and only the current source shows 返回 and focuses it', async () => {
+  const api = fakeApi({
+    detail: jest.fn(() => Promise.resolve(detailOf({ episodes: [] }))),
+    search: jest.fn(() => Promise.resolve([detailOf({ episodes: [] })])),
+  });
+  const app = await start(api);
+  expect(app.textContent).toContain('该来源暂无可播放内容');
+  expect(app.querySelectorAll('.chip').length).toBe(1);
+  const back = btn(app, '返回');
+  expect(back).toBeTruthy();
+  expect(back.classList.contains('focused')).toBe(true);
+});
+
+test('the page renders before the search settles; sources arrive later and focus stays', async () => {
+  let resolveSearch;
+  const api = fakeApi({ search: jest.fn(() => new Promise((r) => { resolveSearch = r; })) });
+  const app = await start(api);
+  expect(app.textContent).not.toContain('加载中');
+  expect(btn(app, '播放').classList.contains('focused')).toBe(true);
+  expect(app.querySelectorAll('.chip').length).toBe(1);
+  expect(app.querySelectorAll('.ep').length).toBe(4);
+  key(40); // to the sources row
+  key(40); // to the episodes
+  key(39); // episode 2
+  expect(app.querySelector('.focused').textContent).toBe('2');
+  resolveSearch([detailOf(), detailOf({ source: 'b', source_name: '源B', id: '2', title: 'Movie' })]);
+  await tick();
+  const chips = app.querySelectorAll('.chip');
+  expect(chips.length).toBe(2);
+  expect(chips[1].textContent).toBe('源B');
+  expect(app.querySelectorAll('.focused').length).toBe(1);
+  expect(app.querySelector('.focused').textContent).toBe('2');
+  key(38); // up reaches the new sources row
+  expect(app.querySelector('.focused').classList.contains('chip')).toBe(true);
+});
+
+test('zero episodes: 返回 while the search runs, then the first other source once it arrives', async () => {
+  let resolveSearch;
+  const api = fakeApi({
+    detail: jest.fn(() => Promise.resolve(detailOf({ episodes: [] }))),
+    search: jest.fn(() => new Promise((r) => { resolveSearch = r; })),
+  });
+  const app = await start(api);
+  expect(btn(app, '返回').classList.contains('focused')).toBe(true);
+  resolveSearch([detailOf({ source: 'b', source_name: '源B', id: '9' })]);
+  await tick();
+  expect(btn(app, '返回')).toBeFalsy();
+  expect(btn(app, '源B').classList.contains('focused')).toBe(true);
+});
+
+test('a throw while rendering shows a message and a focused 返回', async () => {
+  const api = fakeApi({ imageUrl: () => { throw new Error('bad'); } });
+  const app = await start(api);
+  expect(app.textContent).not.toContain('加载中');
+  expect(app.textContent).toContain('加载失败');
+  const back = btn(app, '返回');
+  expect(back.classList.contains('focused')).toBe(true);
+});
+
 test('sources row lists only exact-title matches and marks current', async () => {
   const api = fakeApi({
     search: jest.fn(() =>

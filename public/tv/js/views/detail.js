@@ -38,12 +38,82 @@
       el0.appendChild(body);
       msg.textContent = '加载中…';
 
-      function render(d, list, record, favored) {
+      var page = null; // the rendered page; see render()
+      var found = null; // exact-title search results, null until the search settles
+
+      function isCurrent(s) {
+        return s.source === source && String(s.id) === String(id);
+      }
+
+      function backButton() {
+        var b = el('button', 'btn', '返回');
+        b.onclick = function () { root.history.back(); };
+        return b;
+      }
+
+      // Like home.js: setRows keeps the position by index, so re-find the element that had focus.
+      function layout(keep) {
+        var rows = [];
+        if (page.buttons) rows.push(page.buttons);
+        if (page.chipEls.length) rows.push(page.chipEls);
+        for (var i = 0; i < page.epRows.length; i++) rows.push(page.epRows[i]);
+        if (page.back) rows.push([page.back]);
+        ctx.focus.setRows(rows);
+        for (var r = 0; r < rows.length; r++) {
+          var c = rows[r].indexOf(keep);
+          if (c >= 0) { ctx.focus.focusAt(r, c); return; }
+        }
+      }
+
+      // (Re)builds the sources row: on the first render, and again when the search arrives.
+      function renderSources() {
+        var keep = ctx.focus.current();
+        var keepKey = keep && page.chipEls.indexOf(keep) >= 0 ? keep.getAttribute('data-src') : null;
+        var list = (found || []).slice();
+        // The current source leads the row even when search did not return it.
+        if (page.d && !list.some(isCurrent)) list.unshift({ source: source, id: id, source_name: page.d.source_name });
+
+        page.srcBox.innerHTML = '';
+        page.chipEls = [];
+        page.firstOther = -1;
+        list.forEach(function (s) {
+          var current = isCurrent(s);
+          var c = el('button', 'chip', (current ? '✓ ' : '') + (s.source_name || s.source));
+          c.setAttribute('data-src', s.source + '+' + s.id);
+          if (current) c.setAttribute('data-current', '1');
+          c.onclick = function () {
+            if (current) return;
+            ctx.replace('detail', { source: s.source, id: s.id, title: page.title });
+          };
+          page.srcBox.appendChild(c);
+          if (!current && page.firstOther < 0) page.firstOther = page.chipEls.length;
+          if (keepKey && keepKey === s.source + '+' + s.id) keep = c;
+          page.chipEls.push(c);
+        });
+        page.srcBox.style.display = page.chipEls.length ? '' : 'none';
+
+        if (!page.episodes.length) {
+          // Nothing to play here: offer another source, or 返回 when there is none.
+          var other = page.firstOther >= 0 ? page.chipEls[page.firstOther] : null;
+          if (!other && !page.back) {
+            page.back = backButton();
+            body.appendChild(page.back);
+          } else if (other && page.back) {
+            body.removeChild(page.back);
+            page.back = null;
+          }
+          var onOther = keep && page.chipEls.indexOf(keep) >= 0 && !keep.getAttribute('data-current');
+          if (!onOther) keep = other || page.back;
+        }
+        layout(keep);
+      }
+
+      function render(d, record, favored) {
         msg.textContent = '';
         body.innerHTML = '';
         var episodes = d && d.episodes && d.episodes.length ? d.episodes : [];
         var title = trim((d && d.title) || params.title);
-        var rows = [];
+        page = { d: d, title: title, episodes: episodes, buttons: null, srcBox: null, chipEls: [], firstOther: -1, epRows: [], back: null };
 
         var top = el('div', 'detail-top');
         if (d) {
@@ -111,27 +181,11 @@
           btnRow.appendChild(playBtn);
           btnRow.appendChild(favBtn);
           body.appendChild(btnRow);
-          rows.push([playBtn, favBtn]);
+          page.buttons = [playBtn, favBtn];
         }
 
-        var chipEls = [];
-        var firstOther = -1;
-        if (list.length) {
-          var srcRow = el('div', 'chips detail-sources');
-          list.forEach(function (s) {
-            var current = s.source === source && String(s.id) === String(id);
-            var c = el('button', 'chip', (current ? '✓ ' : '') + (s.source_name || s.source));
-            c.onclick = function () {
-              if (current) return;
-              ctx.replace('detail', { source: s.source, id: s.id, title: title });
-            };
-            srcRow.appendChild(c);
-            if (!current && firstOther < 0) firstOther = chipEls.length;
-            chipEls.push(c);
-          });
-          body.appendChild(srcRow);
-          rows.push(chipEls);
-        }
+        page.srcBox = el('div', 'chips detail-sources');
+        body.appendChild(page.srcBox);
 
         if (episodes.length) {
           var grid = el('div', 'ep-grid');
@@ -143,48 +197,49 @@
             return e;
           });
           body.appendChild(grid);
-          for (var i = 0; i < eps.length; i += COLUMNS) rows.push(eps.slice(i, i + COLUMNS));
+          for (var i = 0; i < eps.length; i += COLUMNS) page.epRows.push(eps.slice(i, i + COLUMNS));
         }
 
-        if (!episodes.length && !chipEls.length) {
-          var back = el('button', 'btn', '返回');
-          back.onclick = function () { root.history.back(); };
-          body.appendChild(back);
-          rows.push([back]);
-        }
-        ctx.focus.setRows(rows);
-        // Nothing to play here: land on the first other source, not on the current one.
-        if (!episodes.length && firstOther >= 0) ctx.focus.focusAt(rows.length - 1, firstOther);
+        renderSources();
+      }
+
+      // A throw while rendering must not leave 加载中… with nothing to press.
+      function fail() {
+        if (gone) return;
+        page = null;
+        body.innerHTML = '';
+        msg.textContent = '加载失败';
+        var back = backButton();
+        body.appendChild(back);
+        ctx.focus.setRows([[back]]);
       }
 
       var dp = settle(function () { return api.detail(source, id); });
-      var sp = dp.then(function (r) {
-        var title = trim((r.ok && r.v && r.v.title) || params.title);
-        if (!title) return { ok: true, v: [] };
-        return settle(function () { return api.search(title); });
-      });
       var rp = settle(function () { return api.playRecords(); });
       var fp = settle(function () { return api.favorites(); });
 
-      Promise.all([dp, sp, rp, fp]).then(function (a) {
+      // The aggregate search can take seconds per source: render without it, add the sources later.
+      Promise.all([dp, rp, fp]).then(function (a) {
         if (gone) return;
         var d = a[0].ok && a[0].v ? a[0].v : null;
-        var title = trim((d && d.title) || params.title);
-        var list = [];
-        var hasCurrent = false;
-        if (a[1].ok && a[1].v) {
-          a[1].v.forEach(function (s) {
-            if (trim(s.title) !== title) return;
-            if (s.source === source && String(s.id) === String(id)) hasCurrent = true;
-            list.push(s);
-          });
-        }
-        // The current source leads the row even when search did not return it.
-        if (d && !hasCurrent) list.unshift({ source: source, id: id, source_name: d.source_name });
-        var record = a[2].ok && a[2].v ? a[2].v[key] : null;
-        var favored = !!(a[3].ok && a[3].v && a[3].v[key]);
-        render(d, list, record, favored);
-      });
+        var record = a[1].ok && a[1].v ? a[1].v[key] : null;
+        var favored = !!(a[2].ok && a[2].v && a[2].v[key]);
+        render(d, record, favored);
+      }).then(null, fail);
+
+      dp.then(function (r) {
+        var title = trim((r.ok && r.v && r.v.title) || params.title);
+        if (!title) return null;
+        return settle(function () { return api.search(title); }).then(function (s) {
+          if (!s.ok || !s.v) return null;
+          return s.v.filter(function (x) { return trim(x.title) === title; });
+        });
+      }).then(function (list) {
+        if (gone || !list) return;
+        found = list;
+        // Before the first render, render() picks the list up; after a failure there is no page.
+        if (page) renderSources();
+      }).then(null, fail);
 
       return function () { gone = true; };
     }
