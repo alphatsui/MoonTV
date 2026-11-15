@@ -45,6 +45,9 @@ h1 { font-size: 56px; margin: 0 0 40px; }
 .progress-fill { height: 100%; background: #4fc3f7; }
 .card-title { margin-top: 8px; font-size: 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .view-search .field { width: 1000px; }
+.search-bar { display: flex; }
+.search-bar .field { margin-right: 32px; }
+.search-bar .btn { width: 200px; }
 .chips { display: flex; flex-wrap: wrap; margin: 0 0 16px; }
 .chip { margin: 0 16px 12px 0; padding: 10px 24px; font-size: 28px; color: #fff; background: #1c2530; border: 2px solid #33414f; border-radius: 24px; outline: none; }
 .grid { display: grid; grid-template-columns: repeat(6, 220px); gap: 24px 40px; padding: 12px 0; }

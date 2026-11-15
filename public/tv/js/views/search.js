@@ -4,6 +4,8 @@
   var views = (root.TVViews = root.TVViews || {});
   var MAX_RESULTS = 60;
   var COLUMNS = 6;
+  var KEY_ENTER = 13;
+  var KEY_IME_DONE = 65376; // Tizen on-screen keyboard Done; it often sends this instead of 13
 
   function el(tag, cls, text) {
     var e = document.createElement(tag);
@@ -25,17 +27,22 @@
       input.type = 'text';
       input.placeholder = '搜索影视';
       input.autocomplete = 'off';
+      // A visible button, since the TV keyboard's Done key may not reach the input as Enter.
+      var searchBtn = el('button', 'btn search-btn', '搜索');
+      var bar = el('div', 'search-bar');
+      bar.appendChild(input);
+      bar.appendChild(searchBtn);
       var msg = el('p', 'msg');
       var chipBox = el('div', 'chips');
       var grid = el('div', 'grid');
-      el0.appendChild(input);
+      el0.appendChild(bar);
       el0.appendChild(msg);
       el0.appendChild(chipBox);
       el0.appendChild(grid);
 
       // Moving focus off the input blurs it (the focus manager does that), so Backspace means Back again.
       function layout() {
-        var rows = [[input], chips];
+        var rows = [[input, searchBtn], chips];
         for (var i = 0; i < cards.length; i += COLUMNS) rows.push(cards.slice(i, i + COLUMNS));
         ctx.focus.setRows(rows);
       }
@@ -98,8 +105,9 @@
       }
 
       input.addEventListener('keydown', function (ev) {
-        if (ev.keyCode === 13) run(input.value);
+        if (ev.keyCode === KEY_ENTER || ev.keyCode === KEY_IME_DONE) run(input.value);
       });
+      searchBtn.onclick = function () { run(input.value); };
 
       layout();
       api.searchHistory().then(function (h) {

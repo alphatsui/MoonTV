@@ -62,6 +62,48 @@ test('search with no results shows 没有找到结果 and focus stays on input',
   expect(document.activeElement).toBe(input);
 });
 
+test('OK on the 搜索 button next to the input runs the search with the input value', async () => {
+  const api = fakeApi({ search: jest.fn(() => Promise.resolve([result(1)])) });
+  const app = await start(api);
+  await tick();
+  const input = app.querySelector('input');
+  input.value = ' 猫 ';
+  press(input, 39); // right: from the input to the button
+  const b = app.querySelector('.focused');
+  expect(b.tagName).toBe('BUTTON');
+  expect(b.textContent).toBe('搜索');
+  expect(document.activeElement).not.toBe(input);
+  press(b, 13);
+  await tick();
+  expect(api.search).toHaveBeenCalledTimes(1);
+  expect(api.search).toHaveBeenCalledWith('猫');
+  expect(api.addSearchHistory).toHaveBeenCalledWith('猫');
+  expect(app.querySelectorAll('.grid .card').length).toBe(1);
+});
+
+test('the 搜索 button with an empty input does nothing', async () => {
+  const api = fakeApi();
+  const app = await start(api);
+  await tick();
+  const input = app.querySelector('input');
+  input.value = '  ';
+  press(input, 39);
+  press(app.querySelector('.focused'), 13);
+  await tick();
+  expect(api.search).not.toHaveBeenCalled();
+});
+
+test('the Tizen keyboard Done key (65376) in the input runs the search', async () => {
+  const api = fakeApi({ search: jest.fn(() => Promise.resolve([])) });
+  const app = await start(api);
+  await tick();
+  const input = app.querySelector('input');
+  input.value = 'abc';
+  press(input, 65376);
+  await tick();
+  expect(api.search).toHaveBeenCalledWith('abc');
+});
+
 test('auto search with q runs api.search once', async () => {
   const api = fakeApi({ search: jest.fn(() => Promise.resolve([result(1)])) });
   const app = await start(api, '#/search?q=%E7%94%B5%E5%BD%B1&auto=1');
