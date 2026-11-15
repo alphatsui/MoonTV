@@ -79,7 +79,8 @@
             t = record.play_time || 0;
           }
           var playBtn = el('button', 'btn', playLabel);
-          playBtn.onclick = function () { ctx.go('play', { source: source, id: id, ep: ep, t: t }); };
+          // from=detail tells the player that this detail is the history entry below it.
+          playBtn.onclick = function () { ctx.go('play', { source: source, id: id, ep: ep, t: t, from: 'detail' }); };
           var favBtn = el('button', 'btn', favored ? '♥ 已收藏' : '♥ 收藏');
           var busy = false;
           favBtn.onclick = function () {
@@ -137,7 +138,7 @@
           var eps = episodes.map(function (u, i) {
             var e = el('div', 'ep', String(i + 1));
             e.tabIndex = -1;
-            e.onclick = function () { ctx.go('play', { source: source, id: id, ep: i, t: 0 }); };
+            e.onclick = function () { ctx.go('play', { source: source, id: id, ep: i, t: 0, from: 'detail' }); };
             grid.appendChild(e);
             return e;
           });

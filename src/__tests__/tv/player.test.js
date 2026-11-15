@@ -19,6 +19,8 @@ class FakeHls {
     this.destroy = jest.fn();
     this.loadSource = jest.fn();
     this.attachMedia = jest.fn();
+    this.startLoad = jest.fn();
+    this.recoverMediaError = jest.fn();
     FakeHls.last = this;
   }
   on(ev, fn) {
@@ -30,6 +32,7 @@ class FakeHls {
 }
 FakeHls.isSupported = () => true;
 FakeHls.Events = { ERROR: 'hlsError' };
+FakeHls.ErrorTypes = { NETWORK_ERROR: 'networkError', MEDIA_ERROR: 'mediaError', OTHER_ERROR: 'otherError' };
 FakeHls.DefaultConfig = { loader: function Base() {} };
 
 // jsdom does not implement media playback: back the media properties with plain fields.
@@ -150,18 +153,102 @@ test('fatal hls error shows 播放失败 with 换来源 focused', async () => {
   const focused = p.el.querySelectorAll('.focused');
   expect(focused.length).toBe(1);
   expect(focused[0].textContent).toBe('换来源');
-  p.press('right');
+  // The buttons are stacked (display:block), so Down moves to 返回.
+  p.press('down');
   expect(p.ctx.focus.current().textContent).toBe('返回');
   p.press('ok');
   expect(backSpy).toHaveBeenCalledTimes(1);
 });
 
-test('video error shows 播放失败 and 换来源 goes to detail', async () => {
+test('video error without hls.js shows 播放失败 and 换来源 replaces the player with detail', async () => {
+  FakeHls.isSupported = () => false;
   const p = await mount(fakeApi());
   fire(p.video, 'error');
   expect(p.el.textContent).toContain('播放失败');
   p.press('ok');
-  expect(p.ctx.go).toHaveBeenCalledWith('detail', expect.objectContaining({ source: 'a', id: '1' }));
+  expect(p.ctx.replace).toHaveBeenCalledWith('detail', expect.objectContaining({ source: 'a', id: '1' }));
+  expect(p.ctx.go).not.toHaveBeenCalled();
+});
+
+test('on the hls.js path a video error event does not pre-empt recovery', async () => {
+  const p = await mount(fakeApi());
+  fire(p.video, 'error');
+  expect(p.el.textContent).not.toContain('播放失败');
+});
+
+test('first fatal network error calls startLoad; the second shows 播放失败', async () => {
+  const p = await mount(fakeApi());
+  const hls = FakeHls.last;
+  hls.emit('hlsError', { fatal: true, type: 'networkError' });
+  expect(hls.startLoad).toHaveBeenCalledTimes(1);
+  expect(p.el.textContent).not.toContain('播放失败');
+  hls.emit('hlsError', { fatal: true, type: 'networkError' });
+  expect(hls.startLoad).toHaveBeenCalledTimes(1);
+  expect(p.el.textContent).toContain('播放失败');
+});
+
+test('first fatal media error calls recoverMediaError; the second shows 播放失败', async () => {
+  const p = await mount(fakeApi());
+  const hls = FakeHls.last;
+  hls.emit('hlsError', { fatal: true, type: 'mediaError' });
+  expect(hls.recoverMediaError).toHaveBeenCalledTimes(1);
+  expect(p.el.textContent).not.toContain('播放失败');
+  // A network error still gets its own attempt.
+  hls.emit('hlsError', { fatal: true, type: 'networkError' });
+  expect(hls.startLoad).toHaveBeenCalledTimes(1);
+  expect(p.el.textContent).not.toContain('播放失败');
+  hls.emit('hlsError', { fatal: true, type: 'mediaError' });
+  expect(hls.recoverMediaError).toHaveBeenCalledTimes(1);
+  expect(p.el.textContent).toContain('播放失败');
+});
+
+test('a fatal error of another type shows 播放失败 at once', async () => {
+  const p = await mount(fakeApi());
+  FakeHls.last.emit('hlsError', { fatal: true, type: 'otherError' });
+  expect(p.el.textContent).toContain('播放失败');
+});
+
+test('a throw from Hls construction shows 播放失败', async () => {
+  function Broken() { throw new Error('no MSE'); }
+  Broken.isSupported = () => true;
+  Broken.Events = FakeHls.Events;
+  window.Hls = Broken;
+  const p = await mount(fakeApi());
+  expect(p.el.textContent).toContain('播放失败');
+  expect(p.ctx.focus.current().textContent).toBe('换来源');
+});
+
+test('an empty episode URL that makes loadSource throw shows 播放失败', async () => {
+  const api = fakeApi({ detail: jest.fn(() => Promise.resolve(detailOf({ episodes: [''] }))) });
+  window.Hls = class extends FakeHls {
+    constructor(c) {
+      super(c);
+      this.loadSource = jest.fn((u) => { if (!u) throw new Error('empty url'); });
+    }
+  };
+  window.Hls.isSupported = () => true;
+  window.Hls.Events = FakeHls.Events;
+  window.Hls.ErrorTypes = FakeHls.ErrorTypes;
+  const p = await mount(api);
+  expect(p.el.textContent).toContain('播放失败');
+});
+
+test('换来源 on a player opened from detail goes back instead of stacking a new detail', async () => {
+  const p = await mount(fakeApi(), { source: 'a', id: '1', ep: '0', from: 'detail' });
+  p.press('up');
+  p.press('right'); // 下一集 -> 选集
+  p.press('right'); // -> 换来源
+  expect(p.ctx.focus.current().textContent).toBe('换来源');
+  p.press('ok');
+  expect(backSpy).toHaveBeenCalledTimes(1);
+  expect(p.ctx.go).not.toHaveBeenCalled();
+  expect(p.ctx.replace).not.toHaveBeenCalled();
+});
+
+test('下一集 keeps from=detail so the next player still returns to detail', async () => {
+  const p = await mount(fakeApi(), { source: 'a', id: '1', ep: '0', from: 'detail' });
+  fire(p.video, 'ended');
+  expect(p.ctx.replace).toHaveBeenCalledWith('play', { source: 'a', id: '1', ep: 1, from: 'detail' });
 });
 
 test('failed detail load shows 播放失败 and Back still falls through', async () => {
@@ -202,13 +289,16 @@ test('back with overlay open hides overlay and is consumed', async () => {
   expect(p.ctx.api.savePlayRecord).not.toHaveBeenCalled();
 });
 
-test('overlay hides 下一集 on the last episode; 选集 goes to detail', async () => {
+test('overlay hides 下一集 on the last episode; 选集 replaces the player with detail', async () => {
   const p = await mount(fakeApi(), { source: 'a', id: '1', ep: '2' });
   p.press('up');
   expect(p.ctx.focus.current().textContent).toBe('选集');
   expect(button(p.el, '下一集')).toBe(undefined);
   p.press('ok');
-  expect(p.ctx.go).toHaveBeenCalledWith('detail', expect.objectContaining({ source: 'a', id: '1' }));
+  // replace, not go: a stale player entry under detail would replay the old episode on Back.
+  expect(p.ctx.replace).toHaveBeenCalledWith('detail', expect.objectContaining({ source: 'a', id: '1' }));
+  expect(p.ctx.go).not.toHaveBeenCalled();
+  expect(backSpy).not.toHaveBeenCalled();
 });
 
 test('ok toggles playback and shows the overlay for 4 s', async () => {

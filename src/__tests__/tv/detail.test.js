@@ -65,14 +65,14 @@ test('continue button shows 第3集 when record index is 3 and routes to play ep
   expect(b.textContent).toContain('第3集');
   b.click();
   await tick();
-  expect(window.location.hash).toBe('#/play?source=a&id=1&ep=2&t=77');
+  expect(window.location.hash).toBe('#/play?source=a&id=1&ep=2&t=77&from=detail');
 });
 
 test('without a record the play button starts episode 1 from 0', async () => {
   const app = await start(fakeApi());
   btn(app, '播放').click();
   await tick();
-  expect(window.location.hash).toBe('#/play?source=a&id=1&ep=0&t=0');
+  expect(window.location.hash).toBe('#/play?source=a&id=1&ep=0&t=0&from=detail');
 });
 
 test('episodes grid has a button per episode and routes to play', async () => {
@@ -81,7 +81,7 @@ test('episodes grid has a button per episode and routes to play', async () => {
   expect(eps.length).toBe(4);
   eps[3].click();
   await tick();
-  expect(window.location.hash).toBe('#/play?source=a&id=1&ep=3&t=0');
+  expect(window.location.hash).toBe('#/play?source=a&id=1&ep=3&t=0&from=detail');
 });
 
 test('favorite toggle posts key source+id then label becomes 已收藏', async () => {

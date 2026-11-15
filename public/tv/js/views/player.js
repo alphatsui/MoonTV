@@ -49,6 +49,8 @@
       var ep = parseInt(params.ep, 10);
       if (!(ep >= 0)) ep = 0;
       var tParam = Number(params.t);
+      // Set by detail: this player sits right above that detail entry in the history.
+      var fromDetail = params.from === 'detail';
 
       var detail = null;
       var title = '';
@@ -90,11 +92,20 @@
       stage.appendChild(errBox);
       el0.appendChild(stage);
 
+      // 选集 / 换来源 must not leave this player in the history: Back would replay the old episode.
+      // Opened from detail, that same detail is the entry below, so step back to it; otherwise
+      // (继续观看 on home) swap this entry for the detail.
       function toDetail() {
-        ctx.go('detail', { source: source, id: id, title: title });
+        if (fromDetail) root.history.back();
+        else ctx.replace('detail', { source: source, id: id, title: title });
+      }
+      function playParams(n) {
+        var p = { source: source, id: id, ep: n };
+        if (fromDetail) p.from = 'detail';
+        return p;
       }
       nextBtn.onclick = function () {
-        if (next !== null) ctx.replace('play', { source: source, id: id, ep: next });
+        if (next !== null) ctx.replace('play', playParams(next));
       };
       epsBtn.onclick = toDetail;
       srcBtn.onclick = toDetail;
@@ -160,7 +171,8 @@
         errBox.appendChild(swap);
         errBox.appendChild(back);
         errBox.className = 'player-error shown';
-        ctx.focus.setRows([[swap, back]]);
+        // .btn is display:block, so the buttons are stacked: one per row.
+        ctx.focus.setRows([[swap], [back]]);
       }
 
       function save() {
@@ -181,7 +193,7 @@
       function advance() {
         if (advanced) return;
         advanced = true;
-        if (next !== null) ctx.replace('play', { source: source, id: id, ep: next });
+        if (next !== null) ctx.replace('play', playParams(next));
         else root.history.back();
       }
 
@@ -276,9 +288,26 @@
       });
       on('pause', save);
       on('ended', advance);
-      on('error', function () {
-        if (ready) showError();
-      });
+
+      // One recovery attempt per error type, as the web player does (startLoad / recoverMediaError).
+      var recovered = { network: false, media: false };
+      function onHlsError(Hls, data) {
+        if (gone || !data || !data.fatal || failed) return;
+        var types = Hls.ErrorTypes || {};
+        try {
+          if (data.type === types.NETWORK_ERROR && !recovered.network) {
+            recovered.network = true;
+            hls.startLoad();
+            return;
+          }
+          if (data.type === types.MEDIA_ERROR && !recovered.media) {
+            recovered.media = true;
+            hls.recoverMediaError();
+            return;
+          }
+        } catch (e) { /* recovery itself failed: fall through to the error screen */ }
+        showError();
+      }
 
       function start(url) {
         var Hls = root.Hls;
@@ -286,12 +315,14 @@
         msg.textContent = '';
         if (Hls && Hls.isSupported && Hls.isSupported()) {
           hls = new Hls({ loader: root.TVAdFilter.loaderFor(Hls) });
-          hls.on(Hls.Events.ERROR, function (evt, data) {
-            if (!gone && data && data.fatal) showError();
-          });
+          hls.on(Hls.Events.ERROR, function (evt, data) { onHlsError(Hls, data); });
           hls.loadSource(url);
           hls.attachMedia(video);
         } else {
+          // Only without hls.js: on that path the video error event would pre-empt the recovery.
+          on('error', function () {
+            if (ready) showError();
+          });
           video.src = url;
         }
         play();
@@ -322,7 +353,12 @@
         oTitle.textContent = title + ' ';
         oEp.textContent = '第' + (ep + 1) + '集';
         oTitle.appendChild(oEp);
-        start(eps[ep]);
+        try {
+          start(eps[ep]);
+        } catch (e) {
+          // A throw from new Hls, loadSource or a missing TVAdFilter would leave a black screen.
+          showError();
+        }
       });
 
       return function () {
