@@ -202,6 +202,30 @@ test('first fatal media error calls recoverMediaError; the second shows 播放�
   expect(p.el.textContent).toContain('播放失败');
 });
 
+test('a fatal manifest load error shows 播放失败 at once, without startLoad', async () => {
+  const p = await mount(fakeApi());
+  const hls = FakeHls.last;
+  hls.emit('hlsError', { fatal: true, type: 'networkError', details: 'manifestLoadError' });
+  expect(hls.startLoad).not.toHaveBeenCalled();
+  expect(p.el.textContent).toContain('播放失败');
+});
+
+test('no first frame within 30 s shows 播放失败; a playing event cancels it', async () => {
+  jest.useFakeTimers();
+  const p = await mount(fakeApi());
+  jest.advanceTimersByTime(29000);
+  expect(p.el.textContent).not.toContain('播放失败');
+  jest.advanceTimersByTime(1500);
+  expect(p.el.textContent).toContain('播放失败');
+  jest.useRealTimers();
+
+  jest.useFakeTimers();
+  const q = await mount(fakeApi());
+  fire(q.video, 'playing');
+  jest.advanceTimersByTime(60000);
+  expect(q.el.textContent).not.toContain('播放失败');
+});
+
 test('a fatal error of another type shows 播放失败 at once', async () => {
   const p = await mount(fakeApi());
   FakeHls.last.emit('hlsError', { fatal: true, type: 'otherError' });
