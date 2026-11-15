@@ -310,23 +310,49 @@ test('ended on last episode goes back', async () => {
   expect(backSpy).toHaveBeenCalledTimes(1);
 });
 
-test('outro skip only after progress, never when outro_time >= duration, and only once', async () => {
-  const skip = { enable: true, intro_time: 0, outro_time: 2000 };
+test('outro skip only after progress, never for positive outro_time, and only once', async () => {
+  const skip = { enable: true, intro_time: 0, outro_time: 60 };
   const p = await mount(fakeApi({ skipConfig: jest.fn(() => Promise.resolve(skip)) }));
-  p.timing(0, 1000);
-  fire(p.video, 'timeupdate');
-  p.timing(600, 1000);
+  p.timing(990, 1000);
   fire(p.video, 'timeupdate');
   expect(p.ctx.replace).not.toHaveBeenCalled();
-  skip.outro_time = 60;
-  p.timing(3, 1000);
-  fire(p.video, 'timeupdate');
+  skip.outro_time = -60;
   p.timing(950, 1000);
   fire(p.video, 'timeupdate');
   fire(p.video, 'timeupdate');
   fire(p.video, 'ended');
   expect(p.ctx.replace).toHaveBeenCalledTimes(1);
   expect(p.ctx.replace).toHaveBeenCalledWith('play', { source: 'a', id: '1', ep: 1 });
+});
+
+test('outro -60 on a 100 s clip does not fire at 0 or 5 s but fires at 41 s', async () => {
+  const skip = { enable: true, intro_time: 0, outro_time: -60 };
+  const p = await mount(fakeApi({ skipConfig: jest.fn(() => Promise.resolve(skip)) }));
+  p.timing(0, 100);
+  fire(p.video, 'timeupdate');
+  p.timing(5, 100);
+  fire(p.video, 'timeupdate');
+  expect(p.ctx.replace).not.toHaveBeenCalled();
+  p.timing(41, 100);
+  fire(p.video, 'timeupdate');
+  expect(p.ctx.replace).toHaveBeenCalledWith('play', { source: 'a', id: '1', ep: 1 });
+});
+
+test('t within 5 s of the end starts at 0 and does not auto-advance', async () => {
+  const p = await mount(fakeApi(), { source: 'a', id: '1', ep: '0', t: '997' });
+  p.timing(0, 1000);
+  fire(p.video, 'loadedmetadata');
+  expect(p.video.currentTime).toBe(0);
+  fire(p.video, 'timeupdate');
+  expect(p.ctx.replace).not.toHaveBeenCalled();
+  expect(backSpy).not.toHaveBeenCalled();
+});
+
+test('t more than 5 s before the end is used', async () => {
+  const p = await mount(fakeApi(), { source: 'a', id: '1', ep: '0', t: '994' });
+  p.timing(0, 1000);
+  fire(p.video, 'loadedmetadata');
+  expect(p.video.currentTime).toBe(994);
 });
 
 test('uses params.t over stored record', async () => {

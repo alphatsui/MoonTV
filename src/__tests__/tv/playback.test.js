@@ -36,10 +36,17 @@ describe('TVPlayback', () => {
   });
 
   describe('shouldSkipOutro', () => {
-    const skip = { enable: true, outro_time: 60 };
-    test('boundary', () => {
+    // outro_time is a negative offset from the end, as in the web player.
+    const skip = { enable: true, outro_time: -60 };
+    test('boundary: skip only after duration + outro_time', () => {
       expect(P.shouldSkipOutro(skip, 2341, 2400)).toBe(true);
+      expect(P.shouldSkipOutro(skip, 2340, 2400)).toBe(false);
       expect(P.shouldSkipOutro(skip, 2339, 2400)).toBe(false);
+    });
+    test('positive, zero and non-finite outro_time are false', () => {
+      [60, 0, NaN, Infinity, -Infinity, undefined, null, '-60'].forEach(o => {
+        expect(P.shouldSkipOutro({ enable: true, outro_time: o }, 2399, 2400)).toBe(false);
+      });
     });
     test('bad duration is false', () => {
       [0, NaN, Infinity, undefined, null, -1].forEach(d => {
@@ -48,8 +55,8 @@ describe('TVPlayback', () => {
     });
     test('bad currentTime, disabled, null skip are false', () => {
       expect(P.shouldSkipOutro(skip, NaN, 2400)).toBe(false);
-      expect(P.shouldSkipOutro({ enable: false, outro_time: 60 }, 2399, 2400)).toBe(false);
-      expect(P.shouldSkipOutro({ enable: true, outro_time: 0 }, 2399, 2400)).toBe(false);
+      expect(P.shouldSkipOutro(skip, Infinity, 2400)).toBe(false);
+      expect(P.shouldSkipOutro({ enable: false, outro_time: -60 }, 2399, 2400)).toBe(false);
       expect(P.shouldSkipOutro(null, 2399, 2400)).toBe(false);
     });
   });

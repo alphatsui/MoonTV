@@ -8,6 +8,7 @@
   var INFO_MS = 4000; // overlay after play/pause or seek
   var REPEAT_GAP_MS = 400; // a longer gap between keydowns starts a new seek run
   var OUTRO_MIN_PLAYED = 5; // seconds of progress before an outro skip may fire
+  var NEAR_END_S = 5; // a start this close to the end restarts at 0, as in TVPlayback.startTime
 
   function el(tag, cls, text) {
     var e = document.createElement(tag);
@@ -260,7 +261,7 @@
       on('loadedmetadata', function () {
         if (startAt > 0) {
           var d = video.duration;
-          video.currentTime = finitePos(d) && startAt >= d ? 0 : startAt;
+          video.currentTime = finitePos(d) && startAt >= d - NEAR_END_S ? 0 : startAt;
         }
         startAt = 0;
       });
@@ -268,9 +269,8 @@
         if (mode !== 'hidden') updateProgress();
         var c = video.currentTime;
         var d = video.duration;
-        // shouldSkipOutro is literal; only skip after real progress and when the outro fits the episode.
-        if (skip && finitePos(d) && c > OUTRO_MIN_PLAYED && Number(skip.outro_time) < d &&
-            root.TVPlayback.shouldSkipOutro(skip, c, d)) {
+        // Only skip after real progress, so an offset longer than the clip cannot fire at the start.
+        if (skip && c > OUTRO_MIN_PLAYED && root.TVPlayback.shouldSkipOutro(skip, c, d)) {
           advance();
         }
       });

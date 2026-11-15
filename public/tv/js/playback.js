@@ -40,9 +40,10 @@
     if (!skip || !skip.enable) return false;
     var outro = num(skip.outro_time);
     var d = dur(duration);
-    if (outro <= 0 || d <= 0) return false;
+    // outro_time is a negative offset from the end, as in the web player; 0 or positive means no outro.
+    if (outro >= 0 || d <= 0) return false;
     if (typeof currentTime !== 'number' || !isFinite(currentTime)) return false;
-    return currentTime >= d - outro;
+    return currentTime > d + outro;
   }
 
   function buildRecord(detail, epIndex, currentTime, duration, searchTitle) {
