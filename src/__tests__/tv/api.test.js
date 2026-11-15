@@ -125,6 +125,29 @@ describe('TVApi', () => {
     expect(fetch.calls).toHaveLength(2);
   });
 
+  test('relogin answered 400 clears creds and rejects AUTH', async () => {
+    const { api, storage } = make([{ status: 401, body: {} }, { status: 400, body: {} }], { [KEY]: creds });
+    const err = await catchErr(api.playRecords());
+    expect(err.code).toBe('AUTH');
+    expect(storage.getItem(KEY)).toBeNull();
+  });
+
+  test.each([403, 429, 500, 503])('relogin answered %i keeps creds and rejects HTTP with the status', async (status) => {
+    const { api, storage, fetch } = make([{ status: 401, body: {} }, { status, body: {} }], { [KEY]: creds });
+    const err = await catchErr(api.playRecords());
+    expect(err.code).toBe('HTTP');
+    expect(err.status).toBe(status);
+    expect(storage.getItem(KEY)).toBe(creds);
+    expect(fetch.calls).toHaveLength(2);
+  });
+
+  test('relogin network error keeps creds and rejects NETWORK', async () => {
+    const { api, storage } = make([{ status: 401, body: {} }, new TypeError('Failed to fetch')], { [KEY]: creds });
+    const err = await catchErr(api.playRecords());
+    expect(err.code).toBe('NETWORK');
+    expect(storage.getItem(KEY)).toBe(creds);
+  });
+
   test('401 after a successful relogin rejects AUTH without a second login', async () => {
     const { api, fetch } = make(
       [{ status: 401, body: {} }, { status: 200, body: {} }, { status: 401, body: {} }],

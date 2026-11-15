@@ -88,8 +88,9 @@
       });
     }
 
-    // Log in with the stored credentials. A server rejection (4xx) clears them and rejects AUTH;
-    // network and server errors keep them so a later try can succeed.
+    // Log in with the stored credentials. Only a credential rejection (400 or 401, the statuses
+    // /api/login uses for that) clears them and rejects AUTH. Every other status (an edge 403 or 429,
+    // a 5xx) and network errors keep them so a later try can succeed.
     function reloginOnce() {
       if (relogin) return relogin;
       var c = getCreds();
@@ -98,7 +99,7 @@
         .then(function (r) {
           relogin = null;
           if (r.ok) return;
-          if (r.status >= 400 && r.status < 500) {
+          if (r.status === 400 || r.status === 401) {
             clearCreds();
             throw makeError('AUTH', (r.data && r.data.error) || LOGIN_FAILED, r.status);
           }
