@@ -31,13 +31,16 @@ h1 { font-size: 56px; margin: 0 0 40px; }
   outline: 6px solid #4fc3f7;
   outline-offset: 2px;
   transform: scale(1.06);
+  /* scrollIntoView keeps the ring (scale + outline, about 19px) inside the scroll container. */
+  scroll-margin: 24px;
 }
 .view-home, .view-search { padding: 40px 80px; }
 .header { display: flex; margin: 0 0 24px; }
 .header .btn { width: 260px; margin: 0 32px 0 0; }
 .row { margin: 0 0 20px; }
 .row-title { font-size: 36px; margin: 0 0 12px; }
-.strip { display: flex; flex-wrap: nowrap; overflow: hidden; padding: 12px 0; }
+/* overflow:hidden clips: 24px of padding holds the focus ring; the negative margin keeps the cards where they were. */
+.strip { display: flex; flex-wrap: nowrap; overflow: hidden; padding: 24px; margin: -12px -24px; }
 .card { flex: 0 0 auto; width: 220px; margin: 0 28px 0 0; }
 .poster { position: relative; width: 220px; height: 330px; background: #1c2530; border-radius: 8px; overflow: hidden; }
 .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -50,7 +53,8 @@ h1 { font-size: 56px; margin: 0 0 40px; }
 .search-bar .btn { width: 200px; }
 .chips { display: flex; flex-wrap: wrap; margin: 0 0 16px; }
 .chip { margin: 0 16px 12px 0; padding: 10px 24px; font-size: 28px; color: #fff; background: #1c2530; border: 2px solid #33414f; border-radius: 24px; outline: none; }
-.grid { display: grid; grid-template-columns: repeat(6, 220px); gap: 24px 40px; padding: 12px 0; }
+/* 24px below the last row gives the page room to scroll the focus ring into view. */
+.grid { display: grid; grid-template-columns: repeat(6, 220px); gap: 24px 40px; padding: 12px 0 24px; }
 .grid .card { margin: 0; }
 .view-detail { padding: 40px 80px; }
 .detail-top { display: flex; margin: 0 0 20px; }
