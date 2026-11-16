@@ -8,6 +8,7 @@
   var INFO_MS = 4000; // overlay after play/pause or seek
   var REPEAT_GAP_MS = 400; // a longer gap between keydowns starts a new seek run
   var OUTRO_MIN_PLAYED = 5; // seconds of progress before an outro skip may fire
+  var START_TIMEOUT_MS = 30000; // no first frame by then: show 播放失败
   var NEAR_END_S = 5; // a start this close to the end restarts at 0, as in TVPlayback.startTime
 
   function el(tag, cls, text) {
@@ -64,6 +65,8 @@
       var startAt = 0;
       var hideTimer = null;
       var saveTimer = null;
+      var startTimer = null;
+      var started = false; // first frame decoded
       var run = { action: null, start: 0, last: 0 }; // current seek key repeat run
 
       var stage = el('div', 'player-stage');
@@ -286,6 +289,7 @@
           advance();
         }
       });
+      on('playing', function () { started = true; });
       on('pause', save);
       on('ended', advance);
 
@@ -294,6 +298,11 @@
       function onHlsError(Hls, data) {
         if (gone || !data || !data.fatal || failed) return;
         var types = Hls.ErrorTypes || {};
+        // startLoad() does not re-request a manifest that failed to load: it would hang with no feedback.
+        if (String(data.details || '').indexOf('manifest') === 0) {
+          showError();
+          return;
+        }
         try {
           if (data.type === types.NETWORK_ERROR && !recovered.network) {
             recovered.network = true;
@@ -326,6 +335,10 @@
           video.src = url;
         }
         play();
+        // Watchdog: a source that never produces a frame must end on the error screen, not hang.
+        startTimer = setTimeout(function () {
+          if (!gone && !started) showError();
+        }, START_TIMEOUT_MS);
         saveTimer = setInterval(function () {
           if (!gone) save();
         }, root.TVPlayback.SAVE_INTERVAL_MS);
@@ -366,6 +379,8 @@
         save();
         gone = true;
         clearHide();
+        if (startTimer) clearTimeout(startTimer);
+        startTimer = null;
         if (saveTimer) clearInterval(saveTimer);
         saveTimer = null;
         document.removeEventListener('keyup', onKeyUp);
